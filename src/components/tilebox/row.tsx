@@ -1,42 +1,44 @@
+import { error } from "console";
+import { TileContext } from "../logic/tilecontext";
 import Tile from "./tile";
-import TileBar from "./tilebar";
+import { useContext } from "react";
 
 interface RowProps {
-  tileCount: number;
-  barTileCount: number;
-  selected: boolean[];
-  TileClickHandler: (rowIndex: number, index: number) => void;
-  currentStep: number;
   rowIndex: number;
 }
 
 export default function Row({
-  tileCount,
-  barTileCount,
-  selected,
-  TileClickHandler,
-  currentStep,
   rowIndex,
 }: RowProps) {
 
+  const tileContext = useContext(TileContext);
 
-  const barsCount = Math.floor(tileCount / barTileCount);
+  if (tileContext === undefined) {
+    return (
+      <div>
+        <p>something unexpected has happened.</p>
+      </div>
+    );
+  }
+  
+
+  const barsCount = Math.floor(tileContext.tileCount / tileContext.barTileCount);
 
   
   return (
-    <div className="flex flex-row pt-10 w-full">
-      {Array.from({ length: barsCount }).map((_,index) => (
-        <TileBar
-          tileCount={tileCount}
-          key={index}
-          selected={selected}
-          TileClickHandler={TileClickHandler}
-          barindex={index}
-          currentPlayingTile={currentStep}
-          rowIndex={rowIndex}
-          barTileCount={barTileCount}
-        />
+    <TileContext.Provider value={{...tileContext, rowIndex: rowIndex}}>
+    <div className="flex flex-row pt-10 w-full items-stretch">
+      <div className="flex justify-center items-center bg-gray-700 py-5 rounded-2xl min-w-[6%] max-w-[6%]">
+        <p className="text-nowrap ">
+          {tileContext.rows[rowIndex].instrumentName}
+        </p>
+      </div>
+      {Array.from({ length: tileContext.tileCount }).map((_,index) => (
+        <Tile
+        index={index}
+          key={index}/>
       ))}
     </div>
+    </TileContext.Provider>
   );
 }
