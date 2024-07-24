@@ -1,41 +1,53 @@
 "use client";
-import { useState } from "react";
+import { useState, useContext } from "react";
+import { TileContext } from "../logic/tilecontext";
 
 interface TileProps {
   index: number;
-  selected: boolean;
-  TileClickHandler: (rowIndex: number, index: number ) => void;
-  currentPlayingTile: number;
-  rowIndex: number;
 }
 
 export default function Tile({
   index,
-  selected,
-  TileClickHandler,
-  currentPlayingTile,
-  rowIndex
 }: TileProps) {
+
+
+  const tileContext = useContext(TileContext);
+
+  if (tileContext === undefined) {
+    return (
+      <div>
+        <p>something unexpected has happened.</p>
+      </div>
+    );
+  }
+
+  if ((tileContext.rowIndex === 3) && (index === 0)) {
+    console.log(tileContext.pattern[tileContext.rowIndex][index])
+    console.log(tileContext.rows[tileContext.rowIndex].color)
+  }
+
+  const color = tileContext.rows[tileContext.rowIndex].color;
+
   return (
     <button
-      className={`block h-full w-full border-gray-900 min-w-10 flex-grow aspect-square border
+      className={`block h-full w-full border-gray-900 min-w-10 flex-grow aspect-square border 
       ${
-        selected && currentPlayingTile == index
-          ? "bg-green-700"
-          : currentPlayingTile == index
+        tileContext?.pattern[tileContext.rowIndex][index] && (tileContext.currentPlayingTile == index)
+          ? `${color} brightness-50`
+          : tileContext.currentPlayingTile == index
           ? "bg-gray-500"
-          : selected
-          ? "bg-lime-500"
+          : tileContext.pattern[tileContext.rowIndex][index]
+          ? `${color}`
           : "bg-[#3A3F44]"
       }
       ${
-        (index % 4 == 0) ? "rounded-l-2xl" : ""
+        (index % 4 == 0) ? "rounded-l-2xl ml-2" : ""
       }
       ${
-        (index % 4 == 3) ? "rounded-r-2xl" : ""
+        (index % 4 == 3) ? "rounded-r-2xl mr-2" : ""
       }
       `}
-      onClick={() => TileClickHandler(rowIndex, index)}
+      onClick={() => tileContext.TileClickHandler(tileContext.rowIndex, index)}
     />
   );
 }

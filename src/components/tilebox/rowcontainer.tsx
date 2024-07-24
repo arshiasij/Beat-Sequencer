@@ -1,65 +1,116 @@
 "use client";
-import { useState } from "react";
+import { JSXElementConstructor, useState, createContext } from "react";
 import Tile from "./tile";
 import RhythmPlayer from "../sound/soundplayer";
 import Row from "./row";
 import { Howl } from "howler";
+import AddRow from "../addrow/addrow";
+import { TileContext } from "../logic/tilecontext";
 
 interface TileContainerProps {
   tileCount: number;
 }
 
 export default function RowContainer({ tileCount }: TileContainerProps) {
+  const [currentStep, setCurrentStep] = useState(-1);
+  const [barTileCount, setBarTileCount] = useState(4);
+
+  const [selected, setSelected] = useState(
+    Array(3)
+      .fill(0)
+      .map(() => Array(tileCount).fill(false))
+  );
 
   function TileClickHandler(rowIndex: number, colIndex: number) {
     const newSelected = [...selected];
     newSelected[rowIndex][colIndex] = !newSelected[rowIndex][colIndex];
     setSelected(newSelected);
-    console.log(colIndex);
+    console.log(selected);
   }
 
-  const [currentStep, setCurrentStep] = useState(-1);
-  const [barTileCount, setBarTileCount] = useState(4);
 
-
-  const [selected, setSelected] = useState(
-    Array(6)
-      .fill(0)
-      .map(() => Array(tileCount).fill(false))
-  );
-
-  const soundPaths = [
-    { soundPath: "/assets/sounds/kicksound.wav" },
-    { soundPath: "/assets/sounds/snaresound.wav" },
-    { soundPath: "/assets/sounds/hihatsound.wav" },
-    { soundPath: "/assets/sounds/openhatsound.wav" },
-    { soundPath: "/assets/sounds/clapsound.wav" },
-    { soundPath: "/assets/sounds/tomsound.wav" },
+  const instrumentsList = [
+    {
+      instrumentName: "kick",
+      soundPath: "/assets/sounds/kicksound.wav",
+      Used: true,
+    },
+    {
+      instrumentName: "snare",
+      soundPath: "/assets/sounds/snaresound.wav",
+      Used: true,
+    },
+    {
+      instrumentName: "hihat",
+      soundPath: "/assets/sounds/hihatsound.wav",
+      Used: true,
+    },
+    {
+      instrumentName: "openhat",
+      soundPath: "/assets/sounds/openhatsound.wav",
+      Used: false,
+    },
+    {
+      instrumentName: "clap",
+      soundPath: "/assets/sounds/clapsound.wav",
+      Used: false,
+    },
+    {
+      instrumentName: "tom",
+      soundPath: "/assets/sounds/tomsound.wav",
+      Used: false,
+    },
   ];
 
-  return (
-    <div>
-      {[0, 1, 2, 3, 4, 5].map((rowIndex) => (
-        <Row
-          barTileCount={barTileCount}
-          key={rowIndex}
-          selected={selected[rowIndex]}
-          TileClickHandler={TileClickHandler}
-          currentStep={currentStep}
-          rowIndex={rowIndex}
-          tileCount={tileCount}
-        />
-      ))}
+  const [rows, setRows] = useState([
+    {
+      instrumentName: "kick",
+      soundPath: "/assets/sounds/kicksound.wav",
+      color: "bg-green-700",
+    },
+    {
+      instrumentName: "snare",
+      soundPath: "/assets/sounds/snaresound.wav",
+      color: "bg-red-700",
+    },
+    {
+      instrumentName: "hihat",
+      soundPath: "/assets/sounds/hihatsound.wav",
+      color: "bg-blue-700",
+    },
+  ]);
 
-      <RhythmPlayer
-        tileCount={tileCount}
-        bpm={120}
-        pattern={selected}
-        setPattern={setSelected}
-        soundPaths={soundPaths}
-        currentStep={currentStep}
-        setCurrentStep={setCurrentStep}
-      />
-    </div>
+  return (
+    <TileContext.Provider
+      value={{
+        rowIndex: 0,
+        rows: rows,
+        pattern: selected,
+        TileClickHandler: TileClickHandler,
+        currentPlayingTile: currentStep,
+        tileCount: tileCount,
+        barTileCount: barTileCount,
+      }}
+    >
+      <div>
+        {rows.map((row, rowIndex) => (
+          <Row key={rowIndex} rowIndex={rowIndex} />
+        ))}
+        {rows.length == 6 ? (
+          ""
+        ) : (
+          <AddRow
+            instrumentsList={instrumentsList}
+            setRows={setRows}
+            setPattern={setSelected}
+          />
+        )}
+        <RhythmPlayer
+          bpm={120}
+          setPattern={setSelected}
+          setCurrentStep={setCurrentStep}
+        />
+      </div>
+    </TileContext.Provider>
   );
 }
