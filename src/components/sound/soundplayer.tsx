@@ -1,59 +1,122 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Howl } from "howler";
+import React, { useEffect, useRef, useState, useContext } from "react";
 import SoundControls from "./soundcontrols";
+import { TileContext } from "../logic/tilecontext";
+import {
+  GetAudioContext,
+  GetLoadedSample,
+  LoadSample,
+  PlaySample,
+  StartTicker,
+} from "./audioengine";
 
 interface RhythmPlayerProps {
-  tileCount: number;
-  pattern: boolean[][];
   setPattern: React.Dispatch<React.SetStateAction<any[][]>>;
-  soundPaths: { soundPath: string }[];
   bpm: number;
-  currentStep: number;
   setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
 }
 
+// How far ahead (seconds) notes are scheduled on the audio clock, and how often (ms) the
+// scheduler wakes up to top that window up. The window has to outlast any main-thread stall.
+const LOOKAHEAD_SECONDS = 0.1;
+const TICK_MS = 25;
+
 const SoundPlayer: React.FC<RhythmPlayerProps> = ({
-  tileCount,
-  pattern,
   setPattern,
-  soundPaths,
   bpm,
-  currentStep,
   setCurrentStep,
 }) => {
-  const soundRef = useRef<Howl | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const tileContext = useContext(TileContext);
+
+  // The scheduler runs outside React renders, so it reads the latest values through refs.
+  // That way tile toggles, new rows and tempo changes apply on the next step without a restart.
+  const patternRef = useRef<boolean[][]>([]);
+  const rowsRef = useRef<{ soundPath: string }[]>([]);
+  const stepDurationRef = useRef(0);
+  const tileCountRef = useRef(1);
+  patternRef.current = tileContext?.pattern ?? [];
+  rowsRef.current = tileContext?.rows ?? [];
+  tileCountRef.current = tileContext?.tileCount ?? 1;
+  stepDurationRef.current = 60 / bpm / 4; // every step is a 16th note
+
+  // Decode each row's sample once (cached by path in the audio engine)
+  useEffect(() => {
+    tileContext?.rows.forEach((row) => LoadSample(row.soundPath));
+  }, [tileContext?.rows]);
 
   useEffect(() => {
-    const sounds = soundPaths.map((row) => new Howl({ src: [row.soundPath] }));
+    if (tileContext === undefined || !isPlaying) return;
 
-    if (isPlaying) {
-      const interval = 60 / bpm / 4; // Calculate interval for 16th notes
-      let i = 0;
+    const ctx = GetAudioContext();
+    ctx.resume();
 
-      const playStep = () => {
-        pattern.forEach((row, rowIndex) => {
-          if (row[currentStep] && sounds) {
-            sounds[rowIndex]?.play();
+    let step = (tileContext.currentPlayingTile + 1) % tileCountRef.current; // resume after the last shown step
+    let nextStepTime = ctx.currentTime + 0.05;
+    const stepQueue: { step: number; time: number }[] = [];
+    const scheduled: { source: AudioBufferSourceNode; time: number }[] = [];
+    let frame = 0;
+
+    const ScheduleSteps = () => {
+      // The bar can change length while playing (time signature), so wrap against the live count
+      step %= tileCountRef.current;
+
+      // If we fell behind (e.g. the context was suspended), skip missed steps instead of
+      // firing them all at once, so we stay on the grid
+      while (nextStepTime < ctx.currentTime) {
+        nextStepTime += stepDurationRef.current;
+        step = (step + 1) % tileCountRef.current;
+      }
+
+      while (nextStepTime < ctx.currentTime + LOOKAHEAD_SECONDS) {
+        patternRef.current.forEach((row, rowIndex) => {
+          const sample = rowsRef.current[rowIndex] && GetLoadedSample(rowsRef.current[rowIndex].soundPath);
+          if (row[step] && sample) {
+            scheduled.push({ source: PlaySample(sample, nextStepTime), time: nextStepTime });
           }
         });
-        currentStep = (currentStep + 1) % pattern[0].length;
-        setCurrentStep(currentStep);
-        console.log(i++);
-        if (i % 80 == 0 && intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = setInterval(playStep, interval * 1000);
-        }
-      };
+        stepQueue.push({ step, time: nextStepTime });
+        nextStepTime += stepDurationRef.current;
+        step = (step + 1) % tileCountRef.current;
+      }
 
-      intervalRef.current = setInterval(playStep, interval * 1000);
+      // Forget sources that have already started
+      while (scheduled.length && scheduled[0].time <= ctx.currentTime) scheduled.shift();
+    };
 
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      };
-    }
-  }, [isPlaying, pattern, bpm]);
+    // Move the playhead in sync with what is actually being heard
+    const DrawPlayhead = () => {
+      let current = -1;
+      while (stepQueue.length && stepQueue[0].time <= ctx.currentTime) {
+        current = stepQueue.shift()!.step;
+      }
+      if (current !== -1) setCurrentStep(current);
+      frame = requestAnimationFrame(DrawPlayhead);
+    };
+
+    ScheduleSteps();
+    const stopTicker = StartTicker(ScheduleSteps, TICK_MS);
+    frame = requestAnimationFrame(DrawPlayhead);
+
+    return () => {
+      stopTicker();
+      cancelAnimationFrame(frame);
+      // Silence notes that were queued in the lookahead window but haven't started yet
+      scheduled.forEach(({ source, time }) => {
+        if (time > ctx.currentTime) source.stop();
+      });
+    };
+    // Only play/pause should restart the scheduler; everything else is read live through refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying]);
+
+  if (tileContext === undefined) {
+    return (
+      <div>
+        <p>something unexpected has happened.</p>
+      </div>
+    );
+  }
 
   const handlePlayClick = () => {
     setIsPlaying(true);
@@ -61,14 +124,14 @@ const SoundPlayer: React.FC<RhythmPlayerProps> = ({
 
   const handleStopClick = () => {
     setIsPlaying(false);
-    if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
   const handleResetClick = () => {
+    setIsPlaying(false);
     setPattern(
-      Array(6)
+      Array(tileContext.rows.length)
         .fill(0)
-        .map(() => Array(tileCount).fill(false))
+        .map(() => Array(tileContext.tileCount).fill(false))
     );
     setCurrentStep(-1);
   };

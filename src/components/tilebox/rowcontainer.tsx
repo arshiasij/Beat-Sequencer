@@ -1,65 +1,125 @@
 "use client";
-import { useState } from "react";
+import { JSXElementConstructor, useState, createContext } from "react";
 import Tile from "./tile";
 import RhythmPlayer from "../sound/soundplayer";
 import Row from "./row";
-import { Howl } from "howler";
+import AddRow from "../addrow/addrow";
+import { TileContext } from "../logic/tilecontext";
+import { defaultTimeSignature, StepCount, TimeSignature } from "../logic/timesignatures";
+import TempoControl from "../controls/tempocontrol";
+import TimeSignatureSelect from "../controls/timesignatureselect";
 
-interface TileContainerProps {
-  tileCount: number;
-}
+const instrumentsList = [
+  {
+    instrumentName: "kick",
+    soundPath: "/assets/sounds/kicksound.wav",
+  },
+  {
+    instrumentName: "snare",
+    soundPath: "/assets/sounds/snaresound.wav",
+  },
+  {
+    instrumentName: "hihat",
+    soundPath: "/assets/sounds/hihatsound.wav",
+  },
+  {
+    instrumentName: "openhat",
+    soundPath: "/assets/sounds/openhatsound.wav",
+  },
+  {
+    instrumentName: "clap",
+    soundPath: "/assets/sounds/clapsound.wav",
+  },
+  {
+    instrumentName: "tom",
+    soundPath: "/assets/sounds/tomsound.wav",
+  },
+];
 
-export default function RowContainer({ tileCount }: TileContainerProps) {
-
-  function TileClickHandler(rowIndex: number, colIndex: number) {
-    const newSelected = [...selected];
-    newSelected[rowIndex][colIndex] = !newSelected[rowIndex][colIndex];
-    setSelected(newSelected);
-    console.log(colIndex);
-  }
-
+export default function RowContainer() {
   const [currentStep, setCurrentStep] = useState(-1);
-  const [barTileCount, setBarTileCount] = useState(4);
-
+  const [bpm, setBpm] = useState(120);
+  const [timeSignature, setTimeSignature] = useState(defaultTimeSignature);
+  const tileCount = StepCount(timeSignature.groups);
 
   const [selected, setSelected] = useState(
-    Array(6)
+    Array(3)
       .fill(0)
       .map(() => Array(tileCount).fill(false))
   );
 
-  const soundPaths = [
-    { soundPath: "/assets/sounds/kicksound.wav" },
-    { soundPath: "/assets/sounds/snaresound.wav" },
-    { soundPath: "/assets/sounds/hihatsound.wav" },
-    { soundPath: "/assets/sounds/openhatsound.wav" },
-    { soundPath: "/assets/sounds/clapsound.wav" },
-    { soundPath: "/assets/sounds/tomsound.wav" },
-  ];
+  // Keep every row as long as the bar: notes that still fit are kept, new steps start empty
+  function TimeSignatureChangeHandler(next: TimeSignature) {
+    const nextCount = StepCount(next.groups);
+    setTimeSignature(next);
+    setSelected((prev) =>
+      prev.map((row) => Array.from({ length: nextCount }, (_, step) => row[step] ?? false))
+    );
+    setCurrentStep((step) => (step >= nextCount ? step % nextCount : step));
+  }
+
+  function TileClickHandler(rowIndex: number, colIndex: number) {
+    setSelected((prev) =>
+      prev.map((row, r) =>
+        r === rowIndex ? row.map((on, c) => (c === colIndex ? !on : on)) : row
+      )
+    );
+  }
+
+
+  const [rows, setRows] = useState([
+    {
+      instrumentName: "kick",
+      soundPath: "/assets/sounds/kicksound.wav",
+      color: "bg-green-700",
+    },
+    {
+      instrumentName: "snare",
+      soundPath: "/assets/sounds/snaresound.wav",
+      color: "bg-red-700",
+    },
+    {
+      instrumentName: "hihat",
+      soundPath: "/assets/sounds/hihatsound.wav",
+      color: "bg-blue-700",
+    },
+  ]);
 
   return (
-    <div>
-      {[0, 1, 2, 3, 4, 5].map((rowIndex) => (
-        <Row
-          barTileCount={barTileCount}
-          key={rowIndex}
-          selected={selected[rowIndex]}
-          TileClickHandler={TileClickHandler}
-          currentStep={currentStep}
-          rowIndex={rowIndex}
-          tileCount={tileCount}
+    <TileContext.Provider
+      value={{
+        rowIndex: 0,
+        rows: rows,
+        pattern: selected,
+        TileClickHandler: TileClickHandler,
+        currentPlayingTile: currentStep,
+        tileCount: tileCount,
+        groups: timeSignature.groups,
+      }}
+    >
+      <div>
+        <div className="mt-10 flex flex-wrap items-end gap-x-12 gap-y-5 rounded-2xl bg-gray-700 px-6 py-5">
+          <TempoControl bpm={bpm} setBpm={setBpm} />
+          <TimeSignatureSelect value={timeSignature} onChange={TimeSignatureChangeHandler} />
+        </div>
+        {rows.map((row, rowIndex) => (
+          <Row key={rowIndex} rowIndex={rowIndex} />
+        ))}
+        {rows.length == 6 ? (
+          ""
+        ) : (
+          <AddRow
+            instrumentsList={instrumentsList}
+            setRows={setRows}
+            setPattern={setSelected}
+          />
+        )}
+        <RhythmPlayer
+          bpm={bpm}
+          setPattern={setSelected}
+          setCurrentStep={setCurrentStep}
         />
-      ))}
-
-      <RhythmPlayer
-        tileCount={tileCount}
-        bpm={120}
-        pattern={selected}
-        setPattern={setSelected}
-        soundPaths={soundPaths}
-        currentStep={currentStep}
-        setCurrentStep={setCurrentStep}
-      />
-    </div>
+      </div>
+    </TileContext.Provider>
   );
 }

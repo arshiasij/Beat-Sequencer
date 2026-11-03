@@ -8,6 +8,7 @@ interface TileBarProps {
   TileClickHandler: (rowIndex: number, index: number) => void;
   currentPlayingTile: number;
   rowIndex: number;
+  rowColor: string;
 }
 
 export default function TileBar({
@@ -18,17 +19,14 @@ export default function TileBar({
   TileClickHandler,
   currentPlayingTile,
   rowIndex,
+  rowColor,
 }: TileBarProps) {
   return (
     <div className="flex px-2 w-full">
       {Array(barTileCount).fill(false).map((_, index) => (
         <Tile
           key={index}
-          selected={selected[4 * barindex + index]}
-          TileClickHandler={TileClickHandler}
           index={4 * barindex + index}
-          currentPlayingTile={currentPlayingTile}
-          rowIndex={rowIndex}
         />
       ))}
     </div>
