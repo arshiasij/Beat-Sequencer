@@ -11,15 +11,12 @@ Observed by reading the code on 2026-11-03 (branch `dev`, with uncommitted WIP).
 - Reset used to rebuild the pattern with a hardcoded 6 rows. It now uses `rows.length`.
 - `instrumentsList` used to be recreated each render, and its `Used` flags were mutated. It's now a module-level const with no `Used` field. `AddRow` works out "used" from `rows`, so it can't drift.
 - The color button's class used to be `bg-[bg-gray-800]` when no color was picked. It's now `bg-gray-800`.
-
-## Timing
-
-- `setInterval` drifts and doesn't reschedule cleanly; a Web Audio lookahead scheduler would be more accurate if timing matters.
+- Audio broke down over time. Playback used to run on main-thread `setInterval` through Howler, so it was throttled in background tabs, slowed by any jank, and clipped from stacked voices. Every add-row also leaked a full set of `Howl`s. It's now a Web Audio lookahead scheduler, with a Web Worker ticker, a sample cache and a master compressor. Howler has been removed. See "Playback" in CLAUDE.md.
+- `SoundPlayer` used to mutate the context object and read a stale closure. It now reads live refs, so toggles and added rows are heard immediately.
+- `TileClickHandler` used to mutate the inner row array. It's now immutable.
 
 ## React correctness
 
-- `SoundPlayer` writes to the context object (`tileContext.currentPlayingTile = ...`) and the interval closure captures the context from when playback started (the effect deps don't include `pattern`/`rows`). Tile toggles still sound only because `TileClickHandler` mutates the inner arrays in place. Rows added during playback aren't heard until stop/play.
-- `TileClickHandler` shallow-copies the outer array but mutates the inner row array, which is a state mutation.
 - Keys use array index (`rowIndex`), which will misbehave once row removal exists.
 
 ## Styling
@@ -28,6 +25,6 @@ Observed by reading the code on 2026-11-03 (branch `dev`, with uncommitted WIP).
 
 ## Leftovers
 
-- `tilebar.tsx` is unused. Unused imports include `Image` in page.tsx, `error from "console"` in row.tsx, and `Howl`/`Tile`/`createContext` in rowcontainer.tsx.
+- `tilebar.tsx` is unused. Unused imports include `Image` in page.tsx, `error from "console"` in row.tsx, and `Tile`/`createContext` in rowcontainer.tsx.
 - `layout.tsx` metadata is still "Create Next App".
 - README is the create-next-app boilerplate plus the deploy link.

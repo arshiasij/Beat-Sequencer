@@ -3,7 +3,6 @@ import { JSXElementConstructor, useState, createContext } from "react";
 import Tile from "./tile";
 import RhythmPlayer from "../sound/soundplayer";
 import Row from "./row";
-import { Howl } from "howler";
 import AddRow from "../addrow/addrow";
 import { TileContext } from "../logic/tilecontext";
 
@@ -51,9 +50,11 @@ export default function RowContainer({ tileCount }: TileContainerProps) {
   );
 
   function TileClickHandler(rowIndex: number, colIndex: number) {
-    const newSelected = [...selected];
-    newSelected[rowIndex][colIndex] = !newSelected[rowIndex][colIndex];
-    setSelected(newSelected);
+    setSelected((prev) =>
+      prev.map((row, r) =>
+        r === rowIndex ? row.map((on, c) => (c === colIndex ? !on : on)) : row
+      )
+    );
   }
 
 

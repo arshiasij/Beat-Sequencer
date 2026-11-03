@@ -1,6 +1,6 @@
 # Beat Sequencer
 
-A browser drum-machine / step sequencer. Single page, Next.js 14 (App Router) + React 18 + TypeScript + Tailwind 3, audio via Howler. Deployed on Vercel: https://beat-sequencer.vercel.app/
+A browser drum-machine / step sequencer. Single page, Next.js 14 (App Router) + React 18 + TypeScript + Tailwind 3, audio via the Web Audio API (no audio library). Deployed on Vercel: https://beat-sequencer.vercel.app/
 
 ## Commands
 
@@ -26,7 +26,8 @@ src/components/
   tilebox/row.tsx                 One instrument row: label + tileCount <Tile>s; re-provides context with its rowIndex
   tilebox/tile.tsx                One step button; reads pattern/color/playhead from context
   tilebox/tilebar.tsx             UNUSED (older bar-grouping component)
-  sound/soundplayer.tsx           Playback engine: Howl per row, setInterval step clock
+  sound/audioengine.ts            Shared AudioContext, sample cache, master gain+compressor, worker ticker
+  sound/soundplayer.tsx           Lookahead step scheduler + play/pause/reset
   sound/soundcontrols.tsx         Play/Pause/Reset icon buttons
   addrow/addrow.tsx               "add" panel: pick unused instrument + color, appends a row
   addrow/colorwheel.tsx           react-color CirclePicker wrapper
@@ -43,15 +44,22 @@ public/assets/icons/*.tsx         SVG icon components (imported via relative ../
 - `bpm` (40–300, default 120), `isTriplet`, `barTileCount` (4, but Tile hardcodes `% 4` grouping).
 - `instrumentsList` — module-level const of the 6 available instruments. "Used" is derived in `AddRow` from `rows`; max 6 rows, the add panel hides at 6.
 
-## Running / verifying
-
-`.claude/launch.json` has a `dev` config (npm run dev, port 3000) for the browser preview.
-
-`TileContext` carries `rows`, `pattern`, `TileClickHandler(row, col)`, `currentPlayingTile`, `tileCount`, `barTileCount`, and `rowIndex` (overridden per row by `Row`'s nested provider). Components bail out with a "something unexpected has happened" div when context is undefined.
+`TileContext` carries `rows`, `pattern`, `TileClickHandler(row, col)`, `currentPlayingTile`, `tileCount`, `barTileCount`, and `rowIndex` (overridden per row by `Row`'s nested provider). Components bail out with a "something unexpected has happened" div when context is undefined. Pattern updates are immutable (`TileClickHandler` maps to new arrays).
 
 ## Playback
 
-`SoundPlayer` builds `Howl`s from `rows` into a ref, and while playing runs `setInterval(playStep, interval)`: plays each row whose `pattern[row][step]` is true, advances the step modulo pattern length, and pushes it to `setCurrentStep`. `Tile` highlights the playhead column (gray, or row color + `brightness-50` if active).
+The lookahead scheduler pattern ("A Tale of Two Clocks"):
+
+- `audioengine.ts` holds one `AudioContext`. Samples are fetched and decoded once per path (`LoadSample`, cached) and read synchronously with `GetLoadedSample`. Every hit goes `BufferSource → master gain (0.8) → compressor → destination`, so stacked voices don't clip. The samples themselves peak at about 1.0.
+- `SoundPlayer` starts a ticker when you press play. The ticker is a Web Worker `setInterval` every 25ms, so it isn't throttled in background tabs; it falls back to the main thread if workers fail. Each tick schedules every step that falls within the next 100ms, at its exact time on the audio clock (`source.start(when)`). Main-thread jank shorter than about 100ms has no audible effect.
+- The scheduler reads `pattern`, `rows` and step length through refs that are refreshed every render. Tile toggles, added rows and BPM/triplet changes take effect on the next step without restarting. Only `isPlaying` restarts the effect, which is why the deps lint rule is disabled there on purpose.
+- The playhead comes from a queue of `{step, time}` that `requestAnimationFrame` drains, so it moves when a step is actually heard. rAF doesn't run in hidden tabs or a hidden preview pane, so the playhead freezes there while the audio keeps going.
+- Pause stops any sources already scheduled in the lookahead window. Resume continues from `currentPlayingTile + 1`. If the scheduler falls behind the audio clock, it skips the missed steps instead of firing them all at once.
+- The `AudioContext` is created on mount to decode samples, and resumed when you click play, because browsers require a user gesture to start audio.
+
+## Running / verifying
+
+`.claude/launch.json` has a `dev` config (npm run dev, port 3000) for the browser preview. Don't run `npm run build` while the dev server is up, because both write `.next`. Use `npx tsc --noEmit` and `npx next lint` instead, or restart the dev server afterwards. To check timing, patch `AudioBufferSourceNode.prototype.start` in the page and record the `when` values.
 
 ## Conventions / gotchas
 
