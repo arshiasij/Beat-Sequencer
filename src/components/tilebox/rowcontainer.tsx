@@ -5,6 +5,9 @@ import RhythmPlayer from "../sound/soundplayer";
 import Row from "./row";
 import AddRow from "../addrow/addrow";
 import { TileContext } from "../logic/tilecontext";
+import { defaultTimeSignature, StepCount, TimeSignature } from "../logic/timesignatures";
+import TempoControl from "../controls/tempocontrol";
+import TimeSignatureSelect from "../controls/timesignatureselect";
 
 const instrumentsList = [
   {
@@ -33,21 +36,27 @@ const instrumentsList = [
   },
 ];
 
-interface TileContainerProps {
-  tileCount: number;
-}
-
-export default function RowContainer({ tileCount }: TileContainerProps) {
+export default function RowContainer() {
   const [currentStep, setCurrentStep] = useState(-1);
-  const [barTileCount, setBarTileCount] = useState(4);
   const [bpm, setBpm] = useState(120);
-  const [isTriplet, setIsTriplet] = useState(false);
+  const [timeSignature, setTimeSignature] = useState(defaultTimeSignature);
+  const tileCount = StepCount(timeSignature.groups);
 
   const [selected, setSelected] = useState(
     Array(3)
       .fill(0)
       .map(() => Array(tileCount).fill(false))
   );
+
+  // Keep every row as long as the bar: notes that still fit are kept, new steps start empty
+  function TimeSignatureChangeHandler(next: TimeSignature) {
+    const nextCount = StepCount(next.groups);
+    setTimeSignature(next);
+    setSelected((prev) =>
+      prev.map((row) => Array.from({ length: nextCount }, (_, step) => row[step] ?? false))
+    );
+    setCurrentStep((step) => (step >= nextCount ? step % nextCount : step));
+  }
 
   function TileClickHandler(rowIndex: number, colIndex: number) {
     setSelected((prev) =>
@@ -85,34 +94,13 @@ export default function RowContainer({ tileCount }: TileContainerProps) {
         TileClickHandler: TileClickHandler,
         currentPlayingTile: currentStep,
         tileCount: tileCount,
-        barTileCount: barTileCount,
+        groups: timeSignature.groups,
       }}
     >
       <div>
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-4">
-            <label className="text-white">
-              BPM:
-              <input
-                type="number"
-                min="40"
-                max="300"
-                value={bpm}
-                onChange={(e) => setBpm(Math.max(40, Math.min(300, parseInt(e.target.value) || 120)))}
-                className="ml-2 bg-gray-700 text-white px-2 py-1 rounded w-20"
-              />
-            </label>
-            
-            <label className="text-white flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isTriplet}
-                onChange={(e) => setIsTriplet(e.target.checked)}
-                className="w-4 h-4"
-              />
-              Triplet Mode
-            </label>
-          </div>
+        <div className="mt-10 flex flex-wrap items-end gap-x-12 gap-y-5 rounded-2xl bg-gray-700 px-6 py-5">
+          <TempoControl bpm={bpm} setBpm={setBpm} />
+          <TimeSignatureSelect value={timeSignature} onChange={TimeSignatureChangeHandler} />
         </div>
         {rows.map((row, rowIndex) => (
           <Row key={rowIndex} rowIndex={rowIndex} />
@@ -130,7 +118,6 @@ export default function RowContainer({ tileCount }: TileContainerProps) {
           bpm={bpm}
           setPattern={setSelected}
           setCurrentStep={setCurrentStep}
-          isTriplet={isTriplet}
         />
       </div>
     </TileContext.Provider>

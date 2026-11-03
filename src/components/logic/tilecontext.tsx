@@ -11,7 +11,7 @@ interface TileContextType {
   TileClickHandler: (rowIndex: number, colIndex: number) => void;
   currentPlayingTile: number;
   tileCount: number;
-  barTileCount: number;
+  groups: number[];
 }
 
 export const TileContext = createContext<TileContextType | undefined>(

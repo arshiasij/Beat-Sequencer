@@ -10,7 +10,7 @@ export default function Home() {
               A simple beat sequencer            
           </h1>
 
-        <RowContainer tileCount={16} />
+        <RowContainer />
       </section>
     </main>
   );

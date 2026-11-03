@@ -1,4 +1,3 @@
-import { error } from "console";
 import { TileContext } from "../logic/tilecontext";
 import Tile from "./tile";
 import { useContext } from "react";
@@ -20,11 +19,7 @@ export default function Row({
       </div>
     );
   }
-  
 
-  const barsCount = Math.floor(tileContext.tileCount / tileContext.barTileCount);
-
-  
   return (
     <TileContext.Provider value={{...tileContext, rowIndex: rowIndex}}>
     <div className="flex flex-row pt-10 w-full items-stretch">

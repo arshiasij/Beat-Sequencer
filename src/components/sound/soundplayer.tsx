@@ -13,7 +13,6 @@ interface RhythmPlayerProps {
   setPattern: React.Dispatch<React.SetStateAction<any[][]>>;
   bpm: number;
   setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
-  isTriplet: boolean;
 }
 
 // How far ahead (seconds) notes are scheduled on the audio clock, and how often (ms) the
@@ -25,7 +24,6 @@ const SoundPlayer: React.FC<RhythmPlayerProps> = ({
   setPattern,
   bpm,
   setCurrentStep,
-  isTriplet,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -36,9 +34,11 @@ const SoundPlayer: React.FC<RhythmPlayerProps> = ({
   const patternRef = useRef<boolean[][]>([]);
   const rowsRef = useRef<{ soundPath: string }[]>([]);
   const stepDurationRef = useRef(0);
+  const tileCountRef = useRef(1);
   patternRef.current = tileContext?.pattern ?? [];
   rowsRef.current = tileContext?.rows ?? [];
-  stepDurationRef.current = 60 / bpm / (isTriplet ? 6 : 4); // 16th notes or 16th-note triplets
+  tileCountRef.current = tileContext?.tileCount ?? 1;
+  stepDurationRef.current = 60 / bpm / 4; // every step is a 16th note
 
   // Decode each row's sample once (cached by path in the audio engine)
   useEffect(() => {
@@ -51,19 +51,21 @@ const SoundPlayer: React.FC<RhythmPlayerProps> = ({
     const ctx = GetAudioContext();
     ctx.resume();
 
-    const tileCount = tileContext.tileCount;
-    let step = (tileContext.currentPlayingTile + 1) % tileCount; // resume after the last shown step
+    let step = (tileContext.currentPlayingTile + 1) % tileCountRef.current; // resume after the last shown step
     let nextStepTime = ctx.currentTime + 0.05;
     const stepQueue: { step: number; time: number }[] = [];
     const scheduled: { source: AudioBufferSourceNode; time: number }[] = [];
     let frame = 0;
 
     const ScheduleSteps = () => {
+      // The bar can change length while playing (time signature), so wrap against the live count
+      step %= tileCountRef.current;
+
       // If we fell behind (e.g. the context was suspended), skip missed steps instead of
       // firing them all at once, so we stay on the grid
       while (nextStepTime < ctx.currentTime) {
         nextStepTime += stepDurationRef.current;
-        step = (step + 1) % tileCount;
+        step = (step + 1) % tileCountRef.current;
       }
 
       while (nextStepTime < ctx.currentTime + LOOKAHEAD_SECONDS) {
@@ -75,7 +77,7 @@ const SoundPlayer: React.FC<RhythmPlayerProps> = ({
         });
         stepQueue.push({ step, time: nextStepTime });
         nextStepTime += stepDurationRef.current;
-        step = (step + 1) % tileCount;
+        step = (step + 1) % tileCountRef.current;
       }
 
       // Forget sources that have already started

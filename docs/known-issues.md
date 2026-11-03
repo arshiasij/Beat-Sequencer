@@ -5,7 +5,8 @@ Observed by reading the code on 2026-11-03 (branch `dev`, with uncommitted WIP).
 ## Fixed
 
 - `removerow.tsx` was invalid TS and broke `next build`. It's now a valid placeholder component that renders `null`, isn't wired up, and is marked TODO.
-- The step interval was 4× too fast. It's now `60000 / bpm / 4` for 16ths, or `/ 6` for 16th-note triplets.
+- The step interval was 4× too fast. It's now `60000 / bpm / 4` for 16th notes. Triplet mode has since been removed in favour of a time signature selector.
+- The tempo box couldn't be typed in, because every keystroke was clamped to the 40 minimum. It now keeps your typing as text and clamps only on Enter or blur. It also has +/− buttons, a slider, and arrow keys (Shift for steps of 10).
 - `SoundPlayer` and `AddRow` called hooks after an early return. That was a Rules of Hooks lint error, which also fails `next build`. The guard now comes after the hooks.
 - Adding a row with no instrument selected used to push a pattern row with no matching `rows` entry. Now the add button stays disabled until an instrument and a color are picked, and the handler also refuses those cases. The new pattern row uses `tileCount` instead of a hardcoded 16.
 - Reset used to rebuild the pattern with a hardcoded 6 rows. It now uses `rows.length`.
@@ -21,7 +22,8 @@ Observed by reading the code on 2026-11-03 (branch `dev`, with uncommitted WIP).
 
 ## Styling
 
-- `Tile` hardcodes bar grouping with `index % 4` instead of using `barTileCount`.
+- Layout is cramped on phones and tablets. The page has `px-16` padding, and at 768px the widest signature (12/8, 24 tiles) spills about 30px into the margin.
+- Switching to a shorter time signature drops the notes beyond the new length for good. Keeping them hidden in a fixed-length pattern would let you switch back without losing them.
 
 ## Leftovers
 
