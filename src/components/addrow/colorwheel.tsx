@@ -11,7 +11,6 @@ export default function ColorWheel({ color, setColor }: ColorWheelProps ) {
 
   const HandleColorChange = (color: ColorResult) => {
     setColor(color.hex);
-    console.log("aaaaaaaaaaaaaaaaaaaaaaa")
   };
 
   return (

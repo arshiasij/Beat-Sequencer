@@ -22,8 +22,7 @@ export default function Tile({
   }
 
   if ((tileContext.rowIndex === 3) && (index === 0)) {
-    console.log(tileContext.pattern[tileContext.rowIndex][index])
-    console.log(tileContext.rows[tileContext.rowIndex].color)
+
   }
 
   const color = tileContext.rows[tileContext.rowIndex].color;

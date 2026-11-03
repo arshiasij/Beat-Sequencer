@@ -8,7 +8,6 @@ interface AddRowProps {
   instrumentsList: {
     instrumentName: string;
     soundPath: string;
-    Used: boolean;
 }[]
   setRows: React.Dispatch<React.SetStateAction<{
     instrumentName: string;
@@ -18,7 +17,6 @@ interface AddRowProps {
 }
 
 export default function AddRow({ setPattern, instrumentsList, setRows }: AddRowProps) {
-  const [instrumentListState, setInstrumentListState] = useState(instrumentsList);
   const [addActive, setAddActive] = useState(false);
   const [instrumentActive, setInstrumentActive] = useState(false);
   const [colorActive, setColorActive] = useState(false);
@@ -31,35 +29,11 @@ export default function AddRow({ setPattern, instrumentsList, setRows }: AddRowP
 
   const addRowContext = useContext(TileContext);
 
-
-
-  if (addRowContext === undefined) {
-    return (
-      <div>
-        <p>something unexpected has happened.</p>
-      </div>
-    );
-  }
-
   function HandleMenuClicks(
     active: boolean,
     setActive: React.Dispatch<React.SetStateAction<boolean>>
   ) {
     setActive(!active);
-  }
-
-  function MinimumVisibleIndex(
-    instrumentsList: {
-      instrumentName: string;
-      soundPath: string;
-      Used: boolean;
-  }[]
-  ) {
-    for (let i = 0; i < instrumentsList.length; i++) {
-      if (instrumentsList[i].Used == false) {
-        return i;
-      }
-    }
   }
 
   const handleClickOutside = (event: MouseEvent) => {
@@ -78,21 +52,30 @@ export default function AddRow({ setPattern, instrumentsList, setRows }: AddRowP
     };
   }, []);
 
+  if (addRowContext === undefined) {
+    return (
+      <div>
+        <p>something unexpected has happened.</p>
+      </div>
+    );
+  }
+
   const pattern = addRowContext.pattern;
   const rows = addRowContext.rows;
 
+  // An instrument is used if a row already plays it
+  function IsUsed(instrumentName: string) {
+    return rows.some(row => row.instrumentName == instrumentName);
+  }
+
+  const firstVisibleIndex = instrumentsList.findIndex(instrument => !IsUsed(instrument.instrumentName));
+
   function AddRowHandler(selectedInstrument: string, color: string) {
-    const newRows = [...rows]
-    const newPattern = [...pattern]
-    newPattern.push(Array(16).fill(false))
-    instrumentsList.forEach(instrument => {
-      if (instrument.instrumentName == selectedInstrument) {
-        instrument.Used = true;
-        console.log(instrumentsList);
-        newRows.push({instrumentName: selectedInstrument, soundPath: instrument.soundPath, color: `bg-[${color}]`})
-      }
-    });
-    setInstrumentListState(instrumentsList);
+    const instrument = instrumentsList.find(instrument => instrument.instrumentName == selectedInstrument);
+    if (!instrument || IsUsed(selectedInstrument) || color === "") return;
+
+    const newRows = [...rows, {instrumentName: selectedInstrument, soundPath: instrument.soundPath, color: `bg-[${color}]`}]
+    const newPattern = [...pattern, Array(addRowContext!.tileCount).fill(false)]
     setAddActive(false);
     setRows(newRows);
     setPattern(newPattern);
@@ -130,9 +113,9 @@ export default function AddRow({ setPattern, instrumentsList, setRows }: AddRowP
               {instrumentsList.map((instrument, index) => (
                 <li
                   className={`${
-                    instrumentListState[index].Used ? "hidden" : ""
+                    IsUsed(instrument.instrumentName) ? "hidden" : ""
                   } py-3 px-5 border border-x-0 border-b-0 ${
-                    index == MinimumVisibleIndex(instrumentsList) ? "border-y-0" : "border-t-gray-600"
+                    index == firstVisibleIndex ? "border-y-0" : "border-t-gray-600"
                   }`}
                   key={index}
                 >
@@ -148,14 +131,18 @@ export default function AddRow({ setPattern, instrumentsList, setRows }: AddRowP
             className="h-full"
             onClick={() => HandleMenuClicks(colorActive, setColorActive)}
           >
-            <p className={`bg-[${(color === "") ? "bg-gray-800" : color}] px-8 py-4 rounded-xl font-semibold`}>Color</p>
+            <p className={`${(color === "") ? "bg-gray-800" : `bg-[${color}]`} px-8 py-4 rounded-xl font-semibold`}>Color</p>
           </button>
           <div className={`${colorActive ? "" : "hidden"} absolute top-8`}>
             <ColorWheel color={color} setColor={setColor} />
           </div>
         </div>
 
-        <button className="h-full" onClick={() => AddRowHandler(selectedInstrument, color)}>
+        <button
+          className="h-full disabled:opacity-40"
+          disabled={selectedInstrument === "" || color === ""}
+          onClick={() => AddRowHandler(selectedInstrument, color)}
+        >
           <p className="font-semibold">add</p>
           </button>
       </div>

@@ -26,12 +26,7 @@ export default function TileBar({
       {Array(barTileCount).fill(false).map((_, index) => (
         <Tile
           key={index}
-          selected={selected[4 * barindex + index]}
-          TileClickHandler={TileClickHandler}
           index={4 * barindex + index}
-          currentPlayingTile={currentPlayingTile}
-          rowIndex={rowIndex}
-          rowColor={rowColor}
         />
       ))}
     </div>

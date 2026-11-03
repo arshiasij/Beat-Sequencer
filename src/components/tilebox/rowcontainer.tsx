@@ -7,6 +7,33 @@ import { Howl } from "howler";
 import AddRow from "../addrow/addrow";
 import { TileContext } from "../logic/tilecontext";
 
+const instrumentsList = [
+  {
+    instrumentName: "kick",
+    soundPath: "/assets/sounds/kicksound.wav",
+  },
+  {
+    instrumentName: "snare",
+    soundPath: "/assets/sounds/snaresound.wav",
+  },
+  {
+    instrumentName: "hihat",
+    soundPath: "/assets/sounds/hihatsound.wav",
+  },
+  {
+    instrumentName: "openhat",
+    soundPath: "/assets/sounds/openhatsound.wav",
+  },
+  {
+    instrumentName: "clap",
+    soundPath: "/assets/sounds/clapsound.wav",
+  },
+  {
+    instrumentName: "tom",
+    soundPath: "/assets/sounds/tomsound.wav",
+  },
+];
+
 interface TileContainerProps {
   tileCount: number;
 }
@@ -14,6 +41,8 @@ interface TileContainerProps {
 export default function RowContainer({ tileCount }: TileContainerProps) {
   const [currentStep, setCurrentStep] = useState(-1);
   const [barTileCount, setBarTileCount] = useState(4);
+  const [bpm, setBpm] = useState(120);
+  const [isTriplet, setIsTriplet] = useState(false);
 
   const [selected, setSelected] = useState(
     Array(3)
@@ -25,42 +54,8 @@ export default function RowContainer({ tileCount }: TileContainerProps) {
     const newSelected = [...selected];
     newSelected[rowIndex][colIndex] = !newSelected[rowIndex][colIndex];
     setSelected(newSelected);
-    console.log(selected);
   }
 
-
-  const instrumentsList = [
-    {
-      instrumentName: "kick",
-      soundPath: "/assets/sounds/kicksound.wav",
-      Used: true,
-    },
-    {
-      instrumentName: "snare",
-      soundPath: "/assets/sounds/snaresound.wav",
-      Used: true,
-    },
-    {
-      instrumentName: "hihat",
-      soundPath: "/assets/sounds/hihatsound.wav",
-      Used: true,
-    },
-    {
-      instrumentName: "openhat",
-      soundPath: "/assets/sounds/openhatsound.wav",
-      Used: false,
-    },
-    {
-      instrumentName: "clap",
-      soundPath: "/assets/sounds/clapsound.wav",
-      Used: false,
-    },
-    {
-      instrumentName: "tom",
-      soundPath: "/assets/sounds/tomsound.wav",
-      Used: false,
-    },
-  ];
 
   const [rows, setRows] = useState([
     {
@@ -93,6 +88,31 @@ export default function RowContainer({ tileCount }: TileContainerProps) {
       }}
     >
       <div>
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-4">
+            <label className="text-white">
+              BPM:
+              <input
+                type="number"
+                min="40"
+                max="300"
+                value={bpm}
+                onChange={(e) => setBpm(Math.max(40, Math.min(300, parseInt(e.target.value) || 120)))}
+                className="ml-2 bg-gray-700 text-white px-2 py-1 rounded w-20"
+              />
+            </label>
+            
+            <label className="text-white flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={isTriplet}
+                onChange={(e) => setIsTriplet(e.target.checked)}
+                className="w-4 h-4"
+              />
+              Triplet Mode
+            </label>
+          </div>
+        </div>
         {rows.map((row, rowIndex) => (
           <Row key={rowIndex} rowIndex={rowIndex} />
         ))}
@@ -106,9 +126,10 @@ export default function RowContainer({ tileCount }: TileContainerProps) {
           />
         )}
         <RhythmPlayer
-          bpm={120}
+          bpm={bpm}
           setPattern={setSelected}
           setCurrentStep={setCurrentStep}
+          isTriplet={isTriplet}
         />
       </div>
     </TileContext.Provider>

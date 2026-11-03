@@ -7,18 +7,53 @@ interface RhythmPlayerProps {
   setPattern: React.Dispatch<React.SetStateAction<any[][]>>;
   bpm: number;
   setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
+  isTriplet: boolean;
 }
 
 const SoundPlayer: React.FC<RhythmPlayerProps> = ({
   setPattern,
   bpm,
   setCurrentStep,
+  isTriplet,
 }) => {
-  const soundRef = useRef<Howl | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const soundsRef = useRef<Howl[]>([]);
 
   const tileContext = useContext(TileContext);
+
+  // Initialize sounds once and store them in ref
+  useEffect(() => {
+    if (tileContext === undefined) return;
+    soundsRef.current = tileContext.rows.map(
+      (row) => new Howl({ src: [row.soundPath], preload: true })
+    );
+  }, [tileContext?.rows]);
+
+  const interval = (60 / bpm) * 1000 / (isTriplet ? 6 : 4); // Calculate interval for 16th notes or 16th-note triplets
+
+  useEffect(() => {
+    if (tileContext === undefined) return;
+    if (isPlaying) {
+      const playStep = () => {
+        tileContext.pattern.forEach((row, rowIndex) => {
+          if (row[tileContext.currentPlayingTile] && soundsRef.current[rowIndex]) {
+            soundsRef.current[rowIndex]?.play();
+          }
+        });
+
+        tileContext.currentPlayingTile =
+          (tileContext.currentPlayingTile + 1) % tileContext.pattern[0].length;
+        setCurrentStep(tileContext.currentPlayingTile);
+      };
+
+      intervalRef.current = setInterval(playStep, interval);
+
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      };
+    }
+  }, [isPlaying, bpm, isTriplet]);
 
   if (tileContext === undefined) {
     return (
@@ -27,36 +62,6 @@ const SoundPlayer: React.FC<RhythmPlayerProps> = ({
       </div>
     );
   }
-
-  useEffect(() => {
-    const sounds = tileContext.rows.map((row) => new Howl({ src: [row.soundPath] }));
-
-    if (isPlaying) {
-      const interval = 60 / bpm / 4; // Calculate interval for 16th notes
-      let i = 0;
-
-      const playStep = () => {
-        tileContext.pattern.forEach((row, rowIndex) => {
-          if (row[tileContext.currentPlayingTile] && sounds) {
-            sounds[rowIndex]?.play();
-          }
-        });
-        tileContext.currentPlayingTile = (tileContext.currentPlayingTile + 1) % tileContext.pattern[0].length;
-        setCurrentStep(tileContext.currentPlayingTile);
-        console.log(i++);
-        if (i % 80 == 0 && intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = setInterval(playStep, interval * 1000);
-        }
-      };
-
-      intervalRef.current = setInterval(playStep, interval * 1000);
-
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      };
-    }
-  }, [isPlaying, tileContext.pattern, bpm]);
 
   const handlePlayClick = () => {
     setIsPlaying(true);
@@ -70,7 +75,7 @@ const SoundPlayer: React.FC<RhythmPlayerProps> = ({
   const handleResetClick = () => {
     setIsPlaying(false);
     setPattern(
-      Array(6)
+      Array(tileContext.rows.length)
         .fill(0)
         .map(() => Array(tileContext.tileCount).fill(false))
     );
