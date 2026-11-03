@@ -10,6 +10,8 @@ A browser drum-machine / step sequencer. Single page, Next.js 14 (App Router) + 
 
 No test suite exists.
 
+Node: `package.json` pins `engines.node` to `26.x`, which Vercel reads. Vercel dropped Node 20.x, and its project setting was still 20.x, so deploys failed right after cloning. `engines` overrides the dashboard setting. The app was also built and run on Node 24 locally; `npm` only warns about the mismatch.
+
 ## Git workflow
 
 - `master` is the main branch; work happens on `dev` / feature branches (`feat/...`) and merges via PR.
